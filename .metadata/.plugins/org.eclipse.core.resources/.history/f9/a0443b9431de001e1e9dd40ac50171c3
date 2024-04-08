@@ -1,0 +1,129 @@
+package com.example.catalog.controllers;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.catalog.entities.Student;
+import com.opencsv.CSVReader;
+import com.opencsv.CSVWriter;
+import com.opencsv.exceptions.CsvException;
+
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/students")
+public class MarksController {
+
+    private final List<Student> students;
+  
+    @Autowired
+    public MarksController() throws IOException, CsvException {
+    	
+    	
+        try (CSVReader csvReader = new CSVReader(new InputStreamReader(new ClassPathResource("d:\\eu\\Practica de specialitate\\students.csv").getInputStream()))) {
+            List<String[]> csvData = csvReader.readAll();
+            students = csvData.stream()
+                    .map(this::createStudentFromCsvRow)
+                    .collect(Collectors.toCollection(ArrayList::new)); // Use ArrayList
+        }
+    }
+
+    private Student createStudentFromCsvRow(String[] csvRow) {
+        Student student = new Student();
+        student.setName(csvRow[0]);
+        List<Integer> marks = List.of(csvRow).subList(1, csvRow.length).stream()
+                .map(Integer::parseInt)
+                .toList();
+        student.setMarks(marks);
+        return student;
+    }
+    
+    @GetMapping
+    public List<Student> getAllStudents() {
+        return students;
+    }
+
+    @PostMapping
+    public void createStudent(@RequestBody Student newStudent) {
+        try {
+            // Add the new student to the list
+            students.add(newStudent);
+
+            // Log information about the new student
+            System.out.println("New Student Added: " + newStudent);
+
+            // Update the CSV file
+            updateCsvFile();
+        } catch (Exception e) {
+            // Log any exceptions that occur during the process
+            e.printStackTrace();
+        }
+    }
+
+
+    @PutMapping("/{name}")
+    public void updateStudentMarks(@RequestParam String name, @RequestParam List<Integer> marks) throws IOException, CsvException {
+        // Find the student by name
+        Optional<Student> studentOptional = students.stream()
+                .filter(student -> student.getName().equals(name))
+                .findFirst();
+
+        if (studentOptional.isPresent()) {
+            // Update the student's marks
+            Student student = studentOptional.get();
+            student.setMarks(marks);
+
+            // Update the CSV file
+            updateCsvFile();
+        }
+    }
+
+    @DeleteMapping("/{name}")
+    public void deleteStudent(@RequestParam String name) throws IOException, CsvException {
+        // Remove the student from the list by name
+        students.removeIf(student -> student.getName().equals(name));
+
+        // Update the CSV file
+        updateCsvFile();
+    }
+    
+    private void updateCsvFile() throws IOException {
+        // Write the updated student list to the CSV file
+        try (CSVWriter csvWriter = new CSVWriter(new FileWriter("d:\\eu\\Practica de specialitate\\students.csv"))) {
+            csvWriter.writeAll(students.stream()
+                    .map(this::createCsvRowFromStudent)
+                    .collect(Collectors.toList()));
+        }
+    }
+
+    private String[] createCsvRowFromStudent(Student student) {
+        List<String> csvRow = new ArrayList<>();
+        csvRow.add(student.getName());
+
+        List<Integer> marks = student.getMarks();
+        if (marks != null) {
+            csvRow.addAll(marks.stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.toList()));
+        }
+
+        return csvRow.toArray(new String[0]);
+    }
+
+}
