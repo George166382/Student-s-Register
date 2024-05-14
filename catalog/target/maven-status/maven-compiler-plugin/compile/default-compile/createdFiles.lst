@@ -1,0 +1,3 @@
+com\example\catalog\CatalogApplication.class
+com\example\catalog\controllers\MarksController.class
+com\example\catalog\entities\Student.class
